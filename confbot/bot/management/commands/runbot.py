@@ -25,15 +25,27 @@ from irc.client import ip_numstr_to_quad, ip_quad_to_numstr
 import confbot.assist as assist
 
 class ConfBot(irc.bot.SingleServerIRCBot):
-    def __init__(self, channel, nickname, server, port=6667):
+    def __init__(self, channel, nickname, server, port=6667, password=None):
         irc.bot.SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
         self.channel = channel
         self.auth_reqs = {}
+        self.password = password
+        self.desired_nick = nickname
+        self.identified = False
 
     def on_nicknameinuse(self, c, e):
+        print("Aux Nick")
         c.nick(c.get_nickname() + "_")
+        print("Ghosting")
+        c.privmsg("NickServ", "GHOST %s %s"%(self.desired_nick, self.password))
+        print("Going to primary nick " + self.desired_nick)
+        c.nick(self.desired_nick)
+        c.privmsg("NickServ", "IDENTIFY %s"%(self.password))
+        self.identified = True
 
     def on_welcome(self, c, e):
+        if not self.identified:
+            c.privmsg("NickServ", "IDENTIFY %s"%(self.password))
         c.join(self.channel)
 
     def on_privmsg(self, c, e):
@@ -97,8 +109,9 @@ class ConfBot(irc.bot.SingleServerIRCBot):
             c.notice(nick, "Not understood: " + cmdstr)
 
 def start_confbot(*args):
-    if len(args) != 3:
-        print "Parameters: <server[:port]> <channel> <nickname>"
+    if len(args) != 3 and len(args) != 4:
+        print "Parameters: <server[:port]> <channel> <nickname> [nickserv pass]"
+        print args
         return 1
 
     logging.basicConfig(level=logging.DEBUG)
@@ -114,13 +127,16 @@ def start_confbot(*args):
         port = 6667
     channel = args[1]
     nickname = args[2]
+    password = None
+    if (len(args) > 3):
+        password = args[3]
 
-    bot = ConfBot(channel, nickname, server, port)
+    bot = ConfBot(channel, nickname, server, port, password)
     bot.start()
 
 
 class Command(BaseCommand):
-    help = "Usage: confbot.py <server[:port]> <channel> <nickname>"
+    help = "Usage: confbot.py <server[:port]> <channel> <nickname> [nickserv pass]"
 
     def handle(self, *args, **options):
         start_confbot(*args)
