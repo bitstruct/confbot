@@ -122,7 +122,7 @@ class ConfBot(irc.bot.SingleServerIRCBot):
 
     def do_command_about(self, nick, c, e, cmd_array):
         c.notice(nick, "--- About ---")
-        c.notice(nick, "confbot, and IRC bot to assist with conference collaboration")
+        c.notice(nick, "confbot, an IRC bot to assist with conference collaboration")
         c.notice(nick, "Source: http://github.com/bitstruct/confbot")
         c.notice(nick, "Developer: BitStruct, LLC  http://www.bitstruct.com")
 
