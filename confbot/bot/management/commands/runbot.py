@@ -96,7 +96,7 @@ class ConfBot(irc.bot.SingleServerIRCBot):
             else:
                 c.notice(nick, "need requires a string parameter to list")
         elif cmd_array[0] == "need-remove":
-            if cmd_array[1] is not None:
+            if len(cmd_array) == 2:
                 try:
                     need = assist.models.Need.objects.get(pk=int(cmd_array[1]))
                     need.delete()
@@ -105,6 +105,17 @@ class ConfBot(irc.bot.SingleServerIRCBot):
                     c.notice(nick, "Need %u not found for nick %s"%(int(cmd_array[1]), nick))
             else:
                 c.notice(nick, "need requires a string parameter to list")
+        elif cmd_array[0] == "help":
+            c.notice(nick, "--- Help ---")
+            c.notice(nick, "needs = list the needs showing need_index nick_requesting need_text")
+            c.notice(nick, "need = add a need, example \"%s: need I need help with Python\""%(c.get_nickname()))
+            c.notice(nick, "need-remove = remove one of your needs by index number, example \"%s: need-remove 6\""%(c.get_nickname()))
+            c.notice(nick, "about = aboout this bot")
+        elif cmd_array[0] == "about":
+            c.notice(nick, "--- About ---")
+            c.notice(nick, "confbot, and IRC bot to assist with conference collaboration")
+            c.notice(nick, "Source: http://github.com/bitstruct/confbot")
+            c.notice(nick, "Developer: BitStruct, LLC  http://www.bitstruct.com")
         else:
             c.notice(nick, "Not understood: " + cmdstr)
 
