@@ -98,13 +98,13 @@ class ConfBot(irc.bot.SingleServerIRCBot):
         elif cmd_array[0] == "need-remove":
             if len(cmd_array) == 2:
                 try:
-                    need = assist.models.Need.objects.get(pk=int(cmd_array[1]))
+                    need = assist.models.Need.objects.get(pk=int(cmd_array[1]), nick=nick)
                     need.delete()
                     c.notice(nick, "Need %u deleted"%(int(cmd_array[1])))
-                except confbot.assist.models.DoesNotExist:
+                except Exception:
                     c.notice(nick, "Need %u not found for nick %s"%(int(cmd_array[1]), nick))
             else:
-                c.notice(nick, "need requires a string parameter to list")
+                c.notice(nick, "need-remove requires an index number to remove")
         elif cmd_array[0] == "help":
             c.notice(nick, "--- Help ---")
             c.notice(nick, "needs = list the needs showing need_index nick_requesting need_text")
