@@ -21,6 +21,7 @@ from django.core.management.base import BaseCommand, CommandError
 import irc.bot
 import irc.strings
 import logging
+import exceptions
 from irc.client import ip_numstr_to_quad, ip_quad_to_numstr
 import confbot.assist as assist
 
@@ -57,67 +58,74 @@ class ConfBot(irc.bot.SingleServerIRCBot):
             self.do_command(e, a[1].strip())
         return
 
+    def do_command_not_understood(self, nick, c, e, cmd_array):
+        c.notice(nick, "Not understood: " + ' '.join([str(x) for x in cmd_array]))
+
     def do_command(self, e, cmdstr):
         nick = e.source.nick
         c = self.connection
         try:
-            self.do_command_parse(nick, c, e, cmdstr)
+            cmd_array = cmdstr.split(" ", 1)
+            method = getattr(self, "do_command_" + cmd_array[0].replace('-','_'), self.do_command_not_understood)
+            method(nick, c, e, cmd_array)
         except Exception as ex:
             fname = os.path.split(sys.exc_traceback.tb_frame.f_code.co_filename)[1]
             c.notice(nick, "%s -> %s : %u"%(str(type(ex)), fname, sys.exc_traceback.tb_lineno))
 
-    def do_command_parse(self, nick, c, e, cmdstr):
-        cmd_array = cmdstr.split(" ", 1)
-        if cmd_array[0] == "stats":
-            for chname, chobj in self.channels.items():
-                c.notice(nick, "--- Channel statistics ---")
-                c.notice(nick, "Channel: " + chname)
-                users = chobj.users()
-                users.sort()
-                c.notice(nick, "Users: " + ", ".join(users))
-                opers = chobj.opers()
-                opers.sort()
-                c.notice(nick, "Opers: " + ", ".join(opers))
-                voiced = chobj.voiced()
-                voiced.sort()
-                c.notice(nick, "Voiced: " + ", ".join(voiced))
-        elif cmd_array[0] == "needs":
-            c.notice(nick, "--- Needs ---")
-            try:
-                for need in assist.models.Need.objects.all():
-                    c.notice(nick, str(need.pk) + " " + need.nick + " - " + need.need)
-            except assist.models.Need.DoesNotExist:
-                c.notice(nick, "No needs yet.")
-        elif cmd_array[0] == "need":
-            if cmd_array[1] is not None:
-                need = assist.models.Need(nick=nick, need=cmd_array[1])
-                need.save()
-                c.notice(nick, "Need %u listed: %s"%(need.pk, cmd_array[1]))
-            else:
-                c.notice(nick, "need requires a string parameter to list")
-        elif cmd_array[0] == "need-remove":
-            if len(cmd_array) == 2:
-                try:
-                    need = assist.models.Need.objects.get(pk=int(cmd_array[1]), nick=nick)
-                    need.delete()
-                    c.notice(nick, "Need %u deleted"%(int(cmd_array[1])))
-                except Exception:
-                    c.notice(nick, "Need %u not found for nick %s"%(int(cmd_array[1]), nick))
-            else:
-                c.notice(nick, "need-remove requires an index number to remove")
-        elif cmd_array[0] == "help":
-            c.notice(nick, "--- Help ---")
-            c.notice(nick, "needs = list the needs showing need_index nick_requesting need_text")
-            c.notice(nick, "need = add a need, example \"%s: need I need help with Python\""%(c.get_nickname()))
-            c.notice(nick, "need-remove = remove one of your needs by index number, example \"%s: need-remove 6\""%(c.get_nickname()))
-            c.notice(nick, "about = aboout this bot")
-        elif cmd_array[0] == "about":
-            c.notice(nick, "--- About ---")
-            c.notice(nick, "confbot, and IRC bot to assist with conference collaboration")
-            c.notice(nick, "Source: http://github.com/bitstruct/confbot")
-            c.notice(nick, "Developer: BitStruct, LLC  http://www.bitstruct.com")
+    def do_command_stats(self, nick, c, e, cmd_array):
+        for chname, chobj in self.channels.items():
+            c.notice(nick, "--- Channel statistics ---")
+            c.notice(nick, "Channel: " + chname)
+            users = chobj.users()
+            users.sort()
+            c.notice(nick, "Users: " + ", ".join(users))
+            opers = chobj.opers()
+            opers.sort()
+            c.notice(nick, "Opers: " + ", ".join(opers))
+            voiced = chobj.voiced()
+            voiced.sort()
+            c.notice(nick, "Voiced: " + ", ".join(voiced))
+
+    def do_command_needs(self, nick, c, e, cmd_array):
+        c.notice(nick, "--- Needs ---")
+        try:
+            for need in assist.models.Need.objects.all():
+                c.notice(nick, str(need.pk) + " " + need.nick + " - " + need.need)
+        except assist.models.Need.DoesNotExist:
+            c.notice(nick, "No needs yet.")
+
+    def do_command_need(self, nick, c, e, cmd_array):
+        if cmd_array[1] is not None:
+            need = assist.models.Need(nick=nick, need=cmd_array[1])
+            need.save()
+            c.notice(nick, "Need %u listed: %s"%(need.pk, cmd_array[1]))
         else:
-            c.notice(nick, "Not understood: " + cmdstr)
+            c.notice(nick, "need requires a string parameter to list")
+
+    def do_command_need_remove(self, nick, c, e, cmd_array):
+        if len(cmd_array) == 2:
+            try:
+                need = assist.models.Need.objects.get(pk=int(cmd_array[1]), nick=nick)
+                need.delete()
+                c.notice(nick, "Need %u deleted"%(int(cmd_array[1])))
+            except Exception:
+                c.notice(nick, "Need %u not found for nick %s"%(int(cmd_array[1]), nick))
+        else:
+            c.notice(nick, "need-remove requires an index number to remove")
+
+    def do_command_help(self, nick, c, e, cmd_array):
+        c.notice(nick, "--- Help ---")
+        c.notice(nick, "needs = list the needs showing need_index nick_requesting need_text")
+        c.notice(nick, "need = add a need, example \"%s: need I need help with Python\""%(c.get_nickname()))
+        c.notice(nick, "need-remove = remove one of your needs by index number, example \"%s: need-remove 6\""%(c.get_nickname()))
+        c.notice(nick, "about = aboout this bot")
+
+    def do_command_about(self, nick, c, e, cmd_array):
+        c.notice(nick, "--- About ---")
+        c.notice(nick, "confbot, and IRC bot to assist with conference collaboration")
+        c.notice(nick, "Source: http://github.com/bitstruct/confbot")
+        c.notice(nick, "Developer: BitStruct, LLC  http://www.bitstruct.com")
+
 
 def start_confbot(*args):
     if len(args) != 3 and len(args) != 4:
